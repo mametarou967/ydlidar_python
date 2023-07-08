@@ -41,6 +41,9 @@ def receive_data_thread():
             # キューにデータを追加
             data_queue.put(data)
 
+            #if len(data) > 0:
+            #    print(data.hex())
+
 # キーボード入力用のスレッドの開始
 console_thread = threading.Thread(target=console_input_thread)
 console_thread.start()
@@ -64,6 +67,17 @@ while True:
         data_array.extend(data_queue.get())
 
     # データの解析処理
+    if len(data_array) > 1:
+        first_byte = data_array[0]
+        second_byte = data_array[1]
+
+        if first_byte == 0xA5 and second_byte == 0x5A:
+            print("config コマンドを検出しました")
+        
+        if first_byte == 0xAA and second_byte == 0x55:
+            print("measure コマンドを検出しました")
+
+        del data_array[:1]
     # ここにデータの解析コードを記述する
     # dataを解析して必要な情報を抽出する
 
