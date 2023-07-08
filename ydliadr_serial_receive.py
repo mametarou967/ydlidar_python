@@ -1,26 +1,77 @@
 # -*- coding: utf-8 -*-
 import serial
-import time
-from collections import deque
+import queue
+import threading
+import sys
+import select
+import msvcrt
 
-COM="COM3"
-bitRate=128000
 
-ser = serial.Serial(COM, bitRate, timeout=0.1)
+# COMポートの設定
+com_port = 'COM3'  # 使用するCOMポートの指定
+baud_rate = 128000  # ボーレートの指定
 
-q = deque()
 
+# シリアルポートのオープン
+ser = serial.Serial(com_port, baud_rate)
+
+# コンソールからの入力コマンド受信用
+input_queue = queue.Queue()
+
+# スレッドセーフなキューの作成
+data_queue = queue.Queue()
+
+# queue経由で受信したバイナリデータ列
+data_array = bytearray()
+
+def console_input_thread():
+    while True:
+        # コンソールからの入力を監視
+        user_input = input()
+        # 入力文字列をキューに追加
+        input_queue.put(user_input)
+
+# データ受信スレッドの定義
+def receive_data_thread():
+    while True:
+        if ser.in_waiting > 0:
+            # データの受信
+            data = ser.read(ser.in_waiting)
+
+            # キューにデータを追加
+            data_queue.put(data)
+
+# キーボード入力用のスレッドの開始
+console_thread = threading.Thread(target=console_input_thread)
+console_thread.start()
+
+# データ受信スレッドの開始
+receive_thread = threading.Thread(target=receive_data_thread)
+receive_thread.start()
+
+# メインスレッドの実行（必要ならば終了条件を設定する）
 while True:
 
-	time.sleep(0.1)
-	
-	q.append(ser.read_all())
-	result = ser.read_all()
-	print(result.hex())
+    # コンソールからの入力コマンドの解析
+    if input_queue.empty() != True :
+        input_command = input_queue.get()
+        print("input command is ",input_command)
+        if input_command == "exit":
+            break
 
-	if result == b'\r':	# <Enter>で終了
-		break
+    # キューからデータを取り出す（データがなければブロックされる）
+    if(data_queue.empty() != True):
+        data_array.extend(data_queue.get())
 
-print('program end')
+    # データの解析処理
+    # ここにデータの解析コードを記述する
+    # dataを解析して必要な情報を抽出する
 
+    # 解析結果の表示
+    # print(data.hex())
+
+    # 必要ならば特定の条件に基づいてコンソールにメッセージを表示する
+
+# シリアルポートのクローズ
 ser.close()
+
