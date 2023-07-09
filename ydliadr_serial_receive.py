@@ -77,7 +77,12 @@ def is_ranging_data_fully_received(data):
 def calc_angle(lsb,msb):
     return (((msb << 8) | lsb) >> 1) / 64
 
+def calc_distance(lsb,msb):
+    return (((msb << 8) | lsb) >> 2) # unit [mm]
+
+
 def ranging_data_analayze(index,data):
+    # index確定
     ph_low = data[0]
     ph_high = data[1]
     ct = data[2]
@@ -89,13 +94,40 @@ def ranging_data_analayze(index,data):
     cs_low = data[8]
     cs_high = data[9]
 
-    print("---------------------")
-    print("index:",index)
+    # 要素計算
     starting_angle = calc_angle(fsa_low,fsa_high)
-    print("開始角度:",starting_angle)
     end_angle = calc_angle(lsa_low,lsa_high)
-    print("終了角度:",end_angle)
-    print("サンプル数:",lsn)
+    unit_angle = (end_angle - starting_angle) / lsn
+
+    print("---------------------")
+    print(f"index:{index}")
+    print(f"開始角度:{starting_angle}")
+    print(f"終了角度:{end_angle}")
+    print(f"単位角度:{unit_angle}")
+    print(f"サンプル数:{lsn}")
+
+    if lsn < 1:
+        return
+
+    if starting_angle == end_angle:
+        return
+
+    loop_index = 0
+    while True:
+        dis_low = data[ 10 + (2 * loop_index) ]
+        dis_high = data[ 10 + (2 * loop_index) + 1 ]
+        
+        term_distance = calc_distance(dis_low,dis_high)
+        term_angle = starting_angle + unit_angle * loop_index
+
+        print(f" [{loop_index}]角度:{term_angle} 距離:{term_distance}")
+        # indexを増加させる処理
+        loop_index = loop_index + 1
+        
+        # 特定の値になったらループを抜ける条件
+        if loop_index == lsn:
+            break
+
 
 # キーボード入力用のスレッドの開始
 console_thread = threading.Thread(target=console_input_thread)
