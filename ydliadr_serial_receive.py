@@ -74,18 +74,28 @@ def is_ranging_data_fully_received(data):
     else:
         return False 
 
-def ranging_data_analayze(data):
-    ph_low = data[1]
-    ph_high = data[0]
-    ct = data[3]
-    lsn = data[2]
-    fsa_low = data[5]
-    fsa_high = data[4]
-    lsa_low = data[7]
-    lsa_high = data[6]
-    cs_low = data[9]
-    cs_high = data[8]
+def calc_angle(lsb,msb):
+    return (((msb << 8) | lsb) >> 1) / 64
 
+def ranging_data_analayze(index,data):
+    ph_low = data[0]
+    ph_high = data[1]
+    ct = data[2]
+    lsn = data[3]
+    fsa_low = data[4]
+    fsa_high = data[5]
+    lsa_low = data[6]
+    lsa_high = data[7]
+    cs_low = data[8]
+    cs_high = data[9]
+
+    print("---------------------")
+    print("index:",index)
+    starting_angle = calc_angle(fsa_low,fsa_high)
+    print("開始角度:",starting_angle)
+    end_angle = calc_angle(lsa_low,lsa_high)
+    print("終了角度:",end_angle)
+    print("サンプル数:",lsn)
 
 # キーボード入力用のスレッドの開始
 console_thread = threading.Thread(target=console_input_thread)
@@ -95,6 +105,7 @@ console_thread.start()
 receive_thread = threading.Thread(target=receive_data_thread)
 receive_thread.start()
 
+receive_index = 0
 # メインスレッドの実行（必要ならば終了条件を設定する）
 while True:
 
@@ -119,14 +130,14 @@ while True:
             # 解析ができなかったため先頭の一文字を削除
             del data_array[:1]
         elif first_byte == 0xAA and second_byte == 0x55:
-            print("measure コマンドを検出しました")
-            print(is_ranging_data_fully_received(data_array))
-            print("受信長 = ",data_array[3])
-            # ここで解析する
-            # ★★
-            del_len = 10 + (data_array[3] * 2)
-            # 該当コマンドのサイズ分削除
-            del data_array[:del_len]
+            # 該当コマンドの末尾まで受信できているか確認する
+            if is_ranging_data_fully_received(data_array):
+                # ここで解析する
+                receive_index = receive_index + 1
+                ranging_data_analayze(receive_index,data_array)
+                # 該当コマンドのサイズ分削除
+                del_len = 10 + (data_array[3] * 2)
+                del data_array[:del_len]
         else:
             # 解析ができなかったため先頭の一文字を削除
             del data_array[:1]
