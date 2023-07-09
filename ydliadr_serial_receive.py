@@ -6,14 +6,17 @@ import sys
 import select
 import msvcrt
 
+debug_mode = False
 
 # COMポートの設定
 com_port = 'COM3'  # 使用するCOMポートの指定
 baud_rate = 128000  # ボーレートの指定
 
-
 # シリアルポートのオープン
 ser = serial.Serial(com_port, baud_rate)
+
+# 表示用配列
+disp_array = [None] * 360
 
 # コンソールからの入力コマンド受信用
 input_queue = queue.Queue()
@@ -23,6 +26,11 @@ data_queue = queue.Queue()
 
 # queue経由で受信したバイナリデータ列
 data_array = bytearray()
+
+def debug_print(message):
+    if debug_mode:
+        print(message)
+
 
 def console_input_thread():
     while True:
@@ -99,12 +107,12 @@ def ranging_data_analayze(index,data):
     end_angle = calc_angle(lsa_low,lsa_high)
     unit_angle = (end_angle - starting_angle) / lsn
 
-    print("---------------------")
-    print(f"index:{index}")
-    print(f"開始角度:{starting_angle}")
-    print(f"終了角度:{end_angle}")
-    print(f"単位角度:{unit_angle}")
-    print(f"サンプル数:{lsn}")
+    debug_print("---------------------")
+    debug_print(f"index:{index}")
+    debug_print(f"開始角度:{starting_angle}")
+    debug_print(f"終了角度:{end_angle}")
+    debug_print(f"単位角度:{unit_angle}")
+    debug_print(f"サンプル数:{lsn}")
 
     if lsn < 1:
         return
@@ -120,7 +128,12 @@ def ranging_data_analayze(index,data):
         term_distance = calc_distance(dis_low,dis_high)
         term_angle = starting_angle + unit_angle * loop_index
 
-        print(f" [{loop_index}]角度:{term_angle} 距離:{term_distance}")
+        debug_print(f" [{loop_index}]角度:{term_angle} 距離:{term_distance}")
+        
+        # 値を表示用配列に格納する
+        int_term_angle = int(term_angle // 1) % 360
+        disp_array[int_term_angle] = term_distance
+
         # indexを増加させる処理
         loop_index = loop_index + 1
         
@@ -147,6 +160,20 @@ while True:
         print("input command is ",input_command)
         if input_command == "exit":
             break
+        elif input_command == "print4":
+            print(f"角度  0:{disp_array[0]}")
+            print(f"角度 90:{disp_array[90]}")
+            print(f"角度180:{disp_array[180]}")
+            print(f"角度270:{disp_array[270]}")
+        elif input_command == "print8":
+            print(f"角度  0:{disp_array[0]}")
+            print(f"角度 45:{disp_array[45]}")
+            print(f"角度 90:{disp_array[90]}")
+            print(f"角度135:{disp_array[135]}")
+            print(f"角度180:{disp_array[180]}")
+            print(f"角度225:{disp_array[225]}")
+            print(f"角度270:{disp_array[270]}")
+            print(f"角度315:{disp_array[315]}")
 
     # キューからデータを取り出す（データがなければブロックされる）
     if(data_queue.empty() != True):
@@ -158,7 +185,7 @@ while True:
         second_byte = data_array[1]
 
         if first_byte == 0xA5 and second_byte == 0x5A:
-            print("config コマンドを検出しました")
+            debug_print("config コマンドを検出しました")
             # 解析ができなかったため先頭の一文字を削除
             del data_array[:1]
         elif first_byte == 0xAA and second_byte == 0x55:
